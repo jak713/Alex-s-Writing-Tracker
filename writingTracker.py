@@ -249,8 +249,9 @@ class WritingTracker(QMainWindow):
             self.days_left = days_left
             self.days_left_label.setText(f"Days Left: {days_left}")
             if writing_data["word_goal"] > 0 and days_left > 0:
-                self.words_per_day = max(1, writing_data["word_goal"] // days_left)
-                self.words_per_day_label.setText(f"Need to write {self.words_per_day} words per day to make it 💖")
+                total_words = writing_data["word_goal"] - writing_data["word_count"]
+                self.words_per_day = total_words / days_left
+                self.words_per_day_label.setText(f"Need to write {self.words_per_day:.0f} words per day to make it 💖")
                 self.percent = (writing_data["word_count"] / writing_data["word_goal"]) * 100
                 self.percent_label.setText(f"Percent of Goal Achieved: {self.percent:.2f}%")
                 self.progress_bar.setValue(self.percent)
