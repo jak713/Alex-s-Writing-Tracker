@@ -1,0 +1,46 @@
+name: Build macOS Intel App
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  build-macos-intel:
+    runs-on: macos-12  # Intel-based runner
+    name: Build PyInstaller App for macOS Intel
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'  # Match your dev version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+          conda install -y pyside6
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --windowed --name "Alex's Writing Tracker" --icon=icon.icns writingTracker.py
+
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "Alex's Writing Tracker" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --app-drop-link 600 200 \
+            "dist/Alex's Writing Tracker.app" \
+            "dist/AlexsWritingTracker.dmg"
+
+      - name: Upload DMG Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AlexsWritingTracker-dmg
+          path: dist/AlexsWritingTracker.dmg
