@@ -12,11 +12,27 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, Q
 from PySide6.QtGui import QIntValidator
 from PySide6.QtCore import Qt, Signal, QObject
 import sys
+import os
 import json
 from collections import UserDict
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QCalendarWidget, QDialogButtonBox
 import datetime
 from PySide6.QtWidgets import QProgressBar
+from PySide6.QtGui import QPainterPath, QRegion, QIcon
+
+def get_data_path():
+    data_dir = os.path.join(os.path.expanduser("~"), ".writingTracker")
+    if not os.path.exists(data_dir):
+        try:
+            os.makedirs(data_dir)
+        except Exception as e:
+            print("Error creating directory:", e)
+    return data_dir
+
+json_file_path = os.path.join(get_data_path(), "writing_data.json")
+if not os.path.exists(json_file_path):
+    with open(json_file_path, "w") as f:
+        json.dump({}, f)
 
 class writing_data_signals(QObject):
     updated = Signal()
@@ -25,6 +41,7 @@ class writing_data(UserDict):
     def __init__(self, *args, **kwargs):
         self.signals = writing_data_signals()
         super().__init__(*args, **kwargs)
+    
     def __setitem__(self, key, value):
         prev_value = self.get(key)
         super().__setitem__(key, value)
@@ -39,11 +56,28 @@ writing_data = writing_data(
     }
 )
 
+icon_path = "icon.svg"  # Path 
 class WritingTracker(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("Alex's Writing Tracker")
-        self.setGeometry(100, 100, 300, 350)
+        self.setGeometry(100, 100, 320, 320)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setStyleSheet("background: transparent;")
+        self.setWindowIcon(QIcon(str(icon_path)))
+        
+
+        def set_rounded(widget, radius=20):
+            path = QPainterPath()
+            path.addRoundedRect(widget.rect(), radius, radius)
+            region = QRegion(path.toFillPolygon().toPolygon())
+            widget.setMask(region)
+
+        # Override resizeEvent to update the rounded mask whenever the window resizes.
+        original_resizeEvent = self.resizeEvent
+        def new_resizeEvent(event):
+            original_resizeEvent(event)
+            set_rounded(self, 20)
+        self.resizeEvent = new_resizeEvent
         self.initUI()
 
     def initUI(self):
@@ -59,10 +93,10 @@ class WritingTracker(QMainWindow):
         title_layout = QHBoxLayout(self.custom_title_bar)
         title_layout.setContentsMargins(5, 0, 5, 0)
         title_layout.setSpacing(5)
-        title_label = QLabel("Alex's Writing Tracker", self.custom_title_bar)
+        title_label = QLabel("Alex's Writing Tracker ✨", self.custom_title_bar)
         title_label.setStyleSheet("color: white; font-family: 'Comic Sans MS'; font-size: 16px;")
         title_layout.addWidget(title_label)
-        # title_layout.addStretch()
+        title_layout.addStretch()
         close_btn = QPushButton("X", self.custom_title_bar)
         close_btn.setFixedSize(20, 20)
         close_btn.setStyleSheet("background: transparent; color: white; border: none;")
@@ -87,8 +121,6 @@ class WritingTracker(QMainWindow):
         # self.central_layout.setContentsMargins(0, 0, 0, 0)
         self.central_layout.setSpacing(0)
         self.main_layout.addWidget(self.central_widget)
-
-        # Set main_widget as the central widget of QMainWindow
         self.setCentralWidget(self.main_widget)
 
         self.setStyleSheet("background-color: #FFF0F5;")
@@ -182,21 +214,21 @@ class WritingTracker(QMainWindow):
         self.percent_label.setStyleSheet("font-family: 'Comic Sans MS'; font-size: 14px; color: #FF69B4;")
         self.layout.addWidget(self.percent_label)
         
-        self.words_per_day_label = QLabel(f"Need to write {self.words_per_day if hasattr(self, 'words_per_day') else 0} words per day to make it")
+        self.words_per_day_label = QLabel(f"Need to write {self.words_per_day if hasattr(self, 'words_per_day') else 0} words per day to make it 💖")
         self.words_per_day_label.setAlignment(Qt.AlignCenter)
         self.words_per_day_label.setStyleSheet("font-family: 'Comic Sans MS'; font-size: 14px; color: #FF69B4;")
         self.layout.addWidget(self.words_per_day_label)
         self.central_layout.addLayout(self.layout)
         self.load_data()
+        
 
     def load_data(self):
         try:
-            with open("writing_data.json", "r") as f:
+            with open(json_file_path, "r") as f:
                 data = json.load(f)
                 writing_data.update(data)
                 self.word_count_input.setText(str(writing_data["word_count"]))
                 self.word_goal_input.setText(str(writing_data["word_goal"]))
-                self.days_left = writing_data["deadline_date"]
                 self.update_days_left()
         except FileNotFoundError:
             pass
@@ -207,6 +239,21 @@ class WritingTracker(QMainWindow):
         except Exception as e:
             print(f"Error loading data: {e}")
         writing_data.signals.updated.connect(self.update_ui)
+        self.update_ui()
+
+    def update_days_left(self):
+        if writing_data["deadline_date"] is not None:
+            deadline = datetime.datetime.strptime(writing_data["deadline_date"], "%Y-%m-%d").date()
+            today = datetime.date.today()
+            days_left = (deadline - today).days
+            self.days_left = days_left
+            self.days_left_label.setText(f"Days Left: {days_left}")
+            if writing_data["word_goal"] > 0 and days_left > 0:
+                self.words_per_day = max(1, writing_data["word_goal"] // days_left)
+                self.words_per_day_label.setText(f"Need to write {self.words_per_day} words per day to make it 💖")
+                self.percent = (writing_data["word_count"] / writing_data["word_goal"]) * 100
+                self.percent_label.setText(f"Percent of Goal Achieved: {self.percent:.2f}%")
+                self.progress_bar.setValue(self.percent)
 
     def update_deadline(self):
         dialog = QDialog(self)
@@ -231,14 +278,22 @@ class WritingTracker(QMainWindow):
     def update_ui(self):
         self.word_count_input.setText(str(writing_data["word_count"]))
         self.word_goal_input.setText(str(writing_data["word_goal"]))
-        # self.update_days_left()
-        # self.update_percent()
-        # self.update_words_per_day()
-        # self.save_data()
+        self.update_days_left()
+        self.save_data()
+
+
+    def save_data(self):
+        try:
+            with open(json_file_path, "w") as f:
+                json.dump(dict(writing_data), f)
+        except Exception as e:
+            print(f"Error saving data: {e}")
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setApplicationName("Alex's Writing Tracker")
+    app.setWindowIcon(QIcon(str(icon_path)))
     window = WritingTracker()
     window.show()
     sys.exit(app.exec())
