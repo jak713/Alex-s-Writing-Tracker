@@ -2,11 +2,10 @@
 # Author: Julia Kaczmarek 
 # Date : 09-05-2025
 # This is a simple writing tracker created for my girlfriend. It takes in
-# int input for the number of words needed to be written, the number of words currently written,
+# input for the number of words needed to be written, the number of words currently written,
 # and the number of days until the deadline. It calculates the number of words needed to be written per day
-# the main window contains a jar which fills up with sweets as the user writes more words.
 # The data is saved in a json file, which is kept and opened when the program is ran.
-# The program is created using PySide6 and is a simple GUI application.
+# The program is created using PySide6 and is a simple GUI application, can be packaged into an executable with PyInstaller 
 
 from PySide6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QLabel, QLineEdit, QHBoxLayout, QInputDialog
 from PySide6.QtGui import QIntValidator
